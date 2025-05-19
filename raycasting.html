@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Three.js - Raycasting Hover Warna</title>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #f0f0f0; }
+        canvas { display: block; }
+    </style>
+</head>
+<body>
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+        let scene, camera, renderer, controls;
+        let cubes = []; // Array untuk menyimpan kubus-kubus yang interaktif
+        let raycaster;
+        let mouse; // Vector2 untuk koordinat mouse
+        let INTERSECTED; // Untuk menyimpan objek yang sedang di-hover
+        const hoverColor = new THREE.Color(0x00ff00); // Warna hijau saat hover
+
+        function init() {
+            // 1. Scene
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0xdedede);
+
+            // 2. Camera
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.set(5, 7, 10);
+
+            // 3. Renderer
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(window.devicePixelRatio);
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            renderer.outputColorSpace = THREE.SRGBColorSpace;
+            document.body.appendChild(renderer.domElement);
+
+            // 4. OrbitControls
+            controls = new OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.05;
+            controls.target.set(0, 1, 0);
+            controls.update();
+
+            // 5. Lights
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+            scene.add(ambientLight);
+
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.9);
+            directionalLight.position.set(10, 15, 10);
+            directionalLight.castShadow = true;
+            // ... (konfigurasi shadow map seperti sebelumnya)
+            directionalLight.shadow.mapSize.width = 1024;
+            directionalLight.shadow.mapSize.height = 1024;
+            const shadowCamSize = 15;
+            directionalLight.shadow.camera.left = -shadowCamSize;
+            directionalLight.shadow.camera.right = shadowCamSize;
+            directionalLight.shadow.camera.top = shadowCamSize;
+            directionalLight.shadow.camera.bottom = -shadowCamSize;
+            directionalLight.shadow.camera.far = 50;
+            scene.add(directionalLight);
+
+            // --- Raycasting Setup ---
+            raycaster = new THREE.Raycaster();
+            mouse = new THREE.Vector2();
+
+            // Event listener untuk gerakan mouse
+            document.addEventListener('mousemove', onDocumentMouseMove, false);
+
+
+            // --- Objek-objek di Scene ---
+
+            // A. LANTAI
+            const planeGeometry = new THREE.PlaneGeometry(30, 30);
+            const planeMaterial = new THREE.MeshStandardMaterial({ color: 0xaaaaaa, side: THREE.DoubleSide, roughness: 0.9 });
+            const plane = new THREE.Mesh(planeGeometry, planeMaterial);
+            plane.rotation.x = -Math.PI / 2;
+            plane.receiveShadow = true;
+            scene.add(plane);
+            // plane.isInteractable = false; // Kita bisa tambahkan properti untuk menandai objek non-interaktif
+
+            // B. KUBUS-KUBUS
+            const cubeGeometry = new THREE.BoxGeometry(2, 2, 2);
+            const originalColors = [0xff6347, 0x4682B4, 0x3CB371, 0xFFD700, 0xDA70D6];
+
+            for (let i = 0; i < 5; i++) {
+                const cubeMaterial = new THREE.MeshStandardMaterial({
+                    color: originalColors[i],
+                    roughness: 0.6
+                });
+                const cube = new THREE.Mesh(cubeGeometry, cubeMaterial);
+
+                cube.position.x = (Math.random() - 0.5) * 15; // Sebar tidak terlalu jauh
+                cube.position.y = 1;
+                cube.position.z = (Math.random() - 0.5) * 15;
+
+                cube.castShadow = true;
+                cube.receiveShadow = true;
+                // Simpan warna asli di userData objek agar bisa dikembalikan
+                cube.userData.originalColor = new THREE.Color(originalColors[i]);
+                cube.userData.isInteractable = true; // Tandai kubus sebagai interaktif
+
+                scene.add(cube);
+                cubes.push(cube); // Tambahkan hanya kubus ke array untuk raycasting
+            }
+
+            window.addEventListener('resize', onWindowResize, false);
+            animate();
+        }
+
+        function onDocumentMouseMove(event) {
+            event.preventDefault();
+            // Hitung posisi mouse dalam Normalized Device Coordinates (-1 sampai +1)
+            mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        function checkIntersections() {
+            // Update pick ray dengan kamera dan posisi mouse
+            raycaster.setFromCamera(mouse, camera);
+
+            // Hitung objek yang berpotongan dengan pick ray
+            // Kita hanya ingin cek perpotongan dengan array 'cubes'
+            const intersects = raycaster.intersectObjects(cubes);
+
+            if (intersects.length > 0) {
+                // Jika objek yang di-hover saat ini BUKAN objek pertama yang berpotongan
+                if (INTERSECTED != intersects[0].object) {
+                    // Kembalikan warna objek sebelumnya jika ada
+                    if (INTERSECTED && INTERSECTED.userData.isInteractable) {
+                        INTERSECTED.material.color.copy(INTERSECTED.userData.originalColor);
+                    }
+                    // Simpan objek baru yang di-hover
+                    INTERSECTED = intersects[0].object;
+                    if (INTERSECTED.userData.isInteractable) {
+                        // Simpan warna asli jika belum (sebenarnya sudah disimpan di init)
+                        // INTERSECTED.userData.originalColor = INTERSECTED.material.color.clone(); (tidak perlu jika sudah di init)
+                        // Ubah warna ke warna hover
+                        INTERSECTED.material.color.copy(hoverColor);
+                    }
+                }
+            } else {
+                // Tidak ada perpotongan, kembalikan warna objek sebelumnya jika ada
+                if (INTERSECTED && INTERSECTED.userData.isInteractable) {
+                    INTERSECTED.material.color.copy(INTERSECTED.userData.originalColor);
+                }
+                INTERSECTED = null; // Tidak ada yang di-hover
+            }
+        }
+
+
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update();
+
+            // Lakukan pengecekan raycasting di setiap frame
+            checkIntersections();
+
+            renderer.render(scene, camera);
+        }
+
+        init();
+    </script>
+</body>
+</html>
