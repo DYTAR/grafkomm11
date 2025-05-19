@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kubus Berputar 3D</title>
+    <style>
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f0f0f0;
+            /* Perspektif untuk seluruh scene */
+            perspective: 800px; 
+        }
+
+        .scene {
+            width: 200px; /* Lebar scene */
+            height: 200px; /* Tinggi scene */
+            /* Untuk memastikan anak-anaknya diposisikan dalam ruang 3D */
+            transform-style: preserve-3d; 
+        }
+
+        .cube {
+            width: 100%;
+            height: 100%;
+            position: relative;
+            transform-style: preserve-3d;
+            /* Inisialisasi rotasi, akan diubah oleh JS */
+            transform: rotateX(-30deg) rotateY(-30deg); 
+        }
+
+        .face {
+            position: absolute;
+            width: 200px; /* Lebar sisi kubus */
+            height: 200px; /* Tinggi sisi kubus */
+            border: 2px solid black;
+            font-size: 24px;
+            font-weight: bold;
+            color: white;
+            text-align: center;
+            line-height: 200px; /* Vertically center text */
+            opacity: 0.85; /* Sedikit transparan agar bisa lihat sisi lain */
+            backface-visibility: hidden; /* Sisi belakang tidak terlihat */
+        }
+
+        /* Atur posisi dan rotasi masing-masing sisi */
+        .front  { background: rgba(255, 0, 0, 0.7); transform: translateZ(100px); }
+        .back   { background: rgba(0, 255, 0, 0.7); transform: rotateY(180deg) translateZ(100px); }
+        .right  { background: rgba(0, 0, 255, 0.7); transform: rotateY(90deg) translateZ(100px); }
+        .left   { background: rgba(255, 255, 0, 0.7); transform: rotateY(-90deg) translateZ(100px); }
+        .top    { background: rgba(255, 0, 255, 0.7); transform: rotateX(90deg) translateZ(100px); }
+        .bottom { background: rgba(0, 255, 255, 0.7); transform: rotateX(-90deg) translateZ(100px); }
+        
+        /* Jika ingin teks di sisi belakang juga terbalik (opsional) */
+        /* .back, .left, .bottom { transform: rotateY(180deg) translateZ(100px) rotateZ(180deg); } */
+        /* .left { transform: rotateY(-90deg) translateZ(100px) rotateZ(180deg); } */
+        /* .bottom { transform: rotateX(-90deg) translateZ(100px) rotateZ(180deg); } */
+
+    </style>
+</head>
+<body>
+
+    <div class="scene">
+        <div class="cube" id="myCube">
+            <div class="face front">Depan</div>
+            <div class="face back">Belakang</div>
+            <div class="face right">Kanan</div>
+            <div class="face left">Kiri</div>
+            <div class="face top">Atas</div>
+            <div class="face bottom">Bawah</div>
+        </div>
+    </div>
+
+    <script>
+        const cube = document.getElementById('myCube');
+        let rotateX = -30; // Inisialisasi sudut X
+        let rotateY = -30; // Inisialisasi sudut Y
+        const rotationSpeed = 0.5; // Kecepatan rotasi
+
+        function animateCube() {
+            // Tambahkan nilai rotasi
+            rotateX += rotationSpeed / 2; // Putar lebih lambat di sumbu X
+            rotateY += rotationSpeed;
+
+            // Terapkan transformasi rotasi ke kubus
+            cube.style.transform = `rotateX(${rotateX}deg) rotateY(${rotateY}deg)`;
+
+            // Minta browser untuk memanggil fungsi ini lagi pada frame berikutnya
+            requestAnimationFrame(animateCube);
+        }
+
+        // Mulai animasi
+        animateCube();
+
+        // Opsional: Tambahkan interaksi mouse untuk mengubah arah rotasi
+        let isDragging = false;
+        let previousMouseX = 0;
+        let previousMouseY = 0;
+
+        document.addEventListener('mousedown', (e) => {
+            isDragging = true;
+            previousMouseX = e.clientX;
+            previousMouseY = e.clientY;
+        });
+
+        document.addEventListener('mouseup', () => {
+            isDragging = false;
+        });
+
+        document.addEventListener('mousemove', (e) => {
+            if (isDragging) {
+                const deltaX = e.clientX - previousMouseX;
+                const deltaY = e.clientY - previousMouseY;
+
+                rotateY += deltaX * 0.5; // Sensitivitas drag
+                rotateX -= deltaY * 0.5; // Dibalik karena sumbu Y mouse
+
+                // Batasi rotasi X agar tidak terbalik sepenuhnya (opsional)
+                // rotateX = Math.max(-90, Math.min(90, rotateX)); 
+
+                // Tidak perlu update style di sini karena animateCube() sudah melakukannya
+                // cube.style.transform = `rotateX(${rotateX}deg) rotateY(${rotateY}deg)`;
+
+                previousMouseX = e.clientX;
+                previousMouseY = e.clientY;
+            }
+        });
+
+    </script>
+
+</body>
+</html>
