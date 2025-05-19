@@ -3,9 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Three.js - Kubus Mengorbit Kubus</title>
+    <title>Three.js - OrbitControls</title>
     <style>
-        body { margin: 0; overflow: hidden; background-color: #333; }
+        body { margin: 0; overflow: hidden; background-color: #f0f0f0; }
         canvas { display: block; }
     </style>
 </head>
@@ -23,21 +23,16 @@
         import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
         let scene, camera, renderer, controls;
-        let centralCube, orbitingCube, orbitPivot;
-        let directionalLight;
-
-        const cubeSize = 2;
-        const orbitRadius = 5; // Jarak kubus pengorbit dari kubus pusat
+        let cubes = []; // Array untuk menyimpan kubus-kubus
 
         function init() {
             // 1. Scene
             scene = new THREE.Scene();
-            scene.background = new THREE.Color(0x607D8B); // Warna latar sedikit biru-abu
+            scene.background = new THREE.Color(0xdedede); // Latar belakang abu-abu terang
 
             // 2. Camera
             camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-            camera.position.set(0, 7, 10);
-            camera.lookAt(0, 0, 0);
+            camera.position.set(5, 7, 10); // Posisikan kamera agak jauh untuk melihat semua
 
             // 3. Renderer
             renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -48,78 +43,82 @@
             renderer.outputColorSpace = THREE.SRGBColorSpace;
             document.body.appendChild(renderer.domElement);
 
-            // 4. Controls (User camera orbit)
+            // 4. OrbitControls
             controls = new OrbitControls(camera, renderer.domElement);
-            controls.enableDamping = true;
-            controls.target.set(0, 0, 0);
+            // Konfigurasi OrbitControls (opsional, tapi berguna)
+            controls.enableDamping = true; // Memberikan efek "inertia" atau kelembutan saat berhenti
+            controls.dampingFactor = 0.05; // Seberapa kuat dampingnya
+            controls.screenSpacePanning = false; // Jika true, pan akan sejajar layar; jika false, pan akan di bidang XZ relatif terhadap kamera
+            controls.minDistance = 3;      // Jarak zoom minimal
+            controls.maxDistance = 30;     // Jarak zoom maksimal
+            controls.maxPolarAngle = Math.PI / 2 - 0.05; // Batas putaran vertikal atas (agar tidak bisa melihat dari bawah lantai lurus)
+            // controls.autoRotate = true; // Untuk rotasi otomatis (non-aktifkan jika ingin kontrol penuh pengguna)
+            // controls.autoRotateSpeed = 0.5;
+            controls.target.set(0, 1, 0); // Titik yang akan menjadi pusat orbit kamera
+            controls.update(); // Penting untuk menerapkan target awal
 
             // 5. Lights
-            const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
             scene.add(ambientLight);
 
-            directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
-            directionalLight.position.set(5, 10, 7); // Atur posisi cahaya untuk bayangan yang baik
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.9);
+            directionalLight.position.set(10, 15, 10);
             directionalLight.castShadow = true;
-            scene.add(directionalLight);
-
-            // Konfigurasi Shadow Camera
             directionalLight.shadow.mapSize.width = 1024;
             directionalLight.shadow.mapSize.height = 1024;
-            const shadowCamSize = 10; // Sesuaikan agar mencakup area orbit kubus
-            directionalLight.shadow.camera.near = 1;
-            directionalLight.shadow.camera.far = 30;
+            const shadowCamSize = 15;
             directionalLight.shadow.camera.left = -shadowCamSize;
             directionalLight.shadow.camera.right = shadowCamSize;
             directionalLight.shadow.camera.top = shadowCamSize;
             directionalLight.shadow.camera.bottom = -shadowCamSize;
-            directionalLight.shadow.camera.updateProjectionMatrix();
+            directionalLight.shadow.camera.far = 50;
+            scene.add(directionalLight);
 
-            // --- Objek Kubus ---
 
-            // A. KUBUS PUSAT
-            const centralGeometry = new THREE.BoxGeometry(cubeSize, cubeSize, cubeSize);
-            const centralMaterial = new THREE.MeshStandardMaterial({
-                color: 0xff6f00, // Oranye
-                roughness: 0.6,
-                metalness: 0.1
-            });
-            centralCube = new THREE.Mesh(centralGeometry, centralMaterial);
-            centralCube.position.y = cubeSize / 2; // Agar alasnya di y=0
-            centralCube.castShadow = true;
-            centralCube.receiveShadow = true;
-            scene.add(centralCube);
+            // --- Objek-objek di Scene ---
 
-            // B. PIVOT UNTUK ORBIT KUBUS KEDUA
-            orbitPivot = new THREE.Object3D(); // Objek kosong sebagai pivot
-            // Posisikan pivot di pusat kubus pusat agar orbitnya benar
-            orbitPivot.position.copy(centralCube.position);
-            scene.add(orbitPivot); // Tambahkan pivot ke scene
-            // Atau bisa juga: centralCube.add(orbitPivot); jika ingin pivot relatif terhadap gerakan centralCube
-
-            // C. KUBUS PENGORBIT
-            const orbitingGeometry = new THREE.BoxGeometry(cubeSize * 0.6, cubeSize * 0.6, cubeSize * 0.6); // Kubus lebih kecil
-            const orbitingMaterial = new THREE.MeshStandardMaterial({
-                color: 0x03A9F4, // Biru muda
-                roughness: 0.5,
-                metalness: 0.2
-            });
-            orbitingCube = new THREE.Mesh(orbitingGeometry, orbitingMaterial);
-            // Posisikan kubus pengorbit RELATIF TERHADAP PIVOT
-            // Jika pivot ada di (0, cubeSize/2, 0) dan kita ingin orbit di bidang XZ:
-            orbitingCube.position.set(orbitRadius, 0, 0); // Beri jarak dari pivot di sumbu X
-                                                            // (Y=0 relatif thd pivot, jadi akan selevel dgn pusat centralCube)
-            orbitingCube.castShadow = true;
-            orbitingCube.receiveShadow = true;
-            orbitPivot.add(orbitingCube); // Jadikan kubus pengorbit anak dari pivot
-
-            // D. LANTAI (untuk menerima bayangan)
-            const planeGeometry = new THREE.PlaneGeometry(20, 20);
-            const planeMaterial = new THREE.MeshStandardMaterial({ color: 0x9E9E9E, side: THREE.DoubleSide, roughness: 0.9 });
+            // A. LANTAI
+            const planeGeometry = new THREE.PlaneGeometry(30, 30);
+            const planeMaterial = new THREE.MeshStandardMaterial({ color: 0xaaaaaa, side: THREE.DoubleSide, roughness: 0.9 });
             const plane = new THREE.Mesh(planeGeometry, planeMaterial);
             plane.rotation.x = -Math.PI / 2;
-            // plane.position.y = 0; // Lantai di y=0
             plane.receiveShadow = true;
             scene.add(plane);
+
+            // B. KUBUS-KUBUS (misalnya 5 buah, atau 1 kubus pusat dan 1 pengorbit statis)
+            const cubeGeometry = new THREE.BoxGeometry(2, 2, 2);
+            const colors = [0xff6347, 0x4682B4, 0x3CB371, 0xFFD700, 0xDA70D6]; // Tomato, SteelBlue, MediumSeaGreen, Gold, Orchid
+
+            for (let i = 0; i < 5; i++) {
+                const cubeMaterial = new THREE.MeshStandardMaterial({
+                    color: colors[i],
+                    roughness: 0.6
+                });
+                const cube = new THREE.Mesh(cubeGeometry, cubeMaterial);
+
+                // Posisikan kubus secara acak di atas lantai
+                cube.position.x = (Math.random() - 0.5) * 20;
+                cube.position.y = 1; // Setengah tinggi kubus (2/2 = 1) agar alasnya di y=0 (lantai)
+                cube.position.z = (Math.random() - 0.5) * 20;
+
+                cube.castShadow = true;
+                cube.receiveShadow = true;
+                scene.add(cube);
+                cubes.push(cube);
+            }
+
+            // Atau, jika ingin seperti "kubus mengorbit kubus" tapi statis:
+            /*
+            const centralMaterial = new THREE.MeshStandardMaterial({ color: 0xff6f00 });
+            const centralCube = new THREE.Mesh(cubeGeometry, centralMaterial);
+            centralCube.position.y = 1;
+            centralCube.castShadow = true; scene.add(centralCube); cubes.push(centralCube);
+
+            const orbitingMaterial = new THREE.MeshStandardMaterial({ color: 0x03A9F4 });
+            const orbitingCubeStatic = new THREE.Mesh(new THREE.BoxGeometry(1,1,1), orbitingMaterial);
+            orbitingCubeStatic.position.set(5, 1, 0); // Posisikan secara statis
+            orbitingCubeStatic.castShadow = true; scene.add(orbitingCubeStatic); cubes.push(orbitingCubeStatic);
+            */
 
 
             window.addEventListener('resize', onWindowResize, false);
@@ -134,26 +133,15 @@
 
         function animate() {
             requestAnimationFrame(animate);
+
+            // WAJIB: Update OrbitControls di setiap frame jika enableDamping atau autoRotate true
             controls.update();
 
-            const time = Date.now() * 0.0005;
-
-            // 1. Rotasi kubus pusat pada porosnya sendiri (opsional)
-            if (centralCube) {
-                centralCube.rotation.y += 0.005;
-            }
-
-            // 2. Rotasi kubus pengorbit pada porosnya sendiri (opsional)
-            if (orbitingCube) {
-                orbitingCube.rotation.x += 0.01;
-                orbitingCube.rotation.y += 0.015;
-            }
-
-            // 3. Rotasi PIVOT untuk membuat kubus kedua mengorbit
-            if (orbitPivot) {
-                orbitPivot.rotation.y = time * 0.5; // Mengorbit pada sumbu Y dari pivot
-                // Jika ingin orbit pada sumbu lain, ubah orbitPivot.rotation.x atau .z
-            }
+            // Anda bisa menambahkan animasi lain di sini jika perlu,
+            // misalnya rotasi kubus pada porosnya sendiri
+            cubes.forEach(cube => {
+                // cube.rotation.y += 0.005;
+            });
 
             renderer.render(scene, camera);
         }
