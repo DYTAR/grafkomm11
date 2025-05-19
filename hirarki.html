@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kubus Berputar dengan Three.js (Hirarki Sederhana)</title>
+    <style>
+        body { margin: 0; overflow: hidden; }
+        canvas { display: block; }
+    </style>
+</head>
+<body>
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
+    <script type="module">
+        import * as THREE from 'three';
+        // Jika Anda ingin kontrol mouse, uncomment OrbitControls:
+        // import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+        let scene, camera, renderer, cube;
+        const cubeSize = 2; // Ukuran sisi kubus
+
+        function init() {
+            // 1. Scene (Wadah untuk semua objek, kamera, dan cahaya)
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0xf0f0f0); // Warna latar belakang
+
+            // 2. Camera (Sudut pandang kita ke dalam scene)
+            // PerspectiveCamera(fov, aspect_ratio, near_clip, far_clip)
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.z = 5; // Mundurkan kamera agar kubus terlihat
+
+            // 3. Renderer (Yang menggambar scene ke layar)
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            document.body.appendChild(renderer.domElement); // Tambahkan canvas ke body
+
+            // 4. Membuat Kubus
+            // Geometri mendefinisikan bentuk
+            const geometry = new THREE.BoxGeometry(cubeSize, cubeSize, cubeSize);
+
+            // Material mendefinisikan tampilan (warna, tekstur, dll.)
+            // Kita akan buat 6 material berbeda untuk setiap sisi
+            const materials = [
+                createFaceMaterial('Depan', 'rgba(255, 0, 0, 0.9)'),    // Merah (Kanan di BoxGeometry)
+                createFaceMaterial('Belakang', 'rgba(0, 255, 0, 0.9)'), // Hijau (Kiri di BoxGeometry)
+                createFaceMaterial('Atas', 'rgba(0, 0, 255, 0.9)'),     // Biru (Atas di BoxGeometry)
+                createFaceMaterial('Bawah', 'rgba(255, 255, 0, 0.9)'), // Kuning (Bawah di BoxGeometry)
+                createFaceMaterial('Kanan', 'rgba(255, 0, 255, 0.9)'), // Magenta (Depan di BoxGeometry) -> sesuaikan dengan orientasi
+                createFaceMaterial('Kiri', 'rgba(0, 255, 255, 0.9)')   // Cyan (Belakang di BoxGeometry) -> sesuaikan dengan orientasi
+            ];
+            // Urutan material untuk BoxGeometry: px, nx, py, ny, pz, nz
+            // (kanan, kiri, atas, bawah, depan, belakang)
+
+            // Mesh adalah objek yang menggabungkan geometri dan material
+            cube = new THREE.Mesh(geometry, materials);
+            scene.add(cube); // Tambahkan kubus ke scene
+
+            // Hirarki: 'cube' adalah objek tunggal. Jika kita ingin hirarki lebih jelas,
+            // kita bisa membuat cube sebagai THREE.Group dan menambahkan 6 PlaneMesh sebagai anaknya.
+            // Namun, BoxGeometry dengan array material sudah umum.
+            // 'cube' adalah anak dari 'scene'. 'scene' adalah root dari graph hirarki.
+
+            // Opsional: Tambahkan AxesHelper untuk visualisasi sumbu X, Y, Z
+            const axesHelper = new THREE.AxesHelper(5); // panjang sumbu 5 unit
+            scene.add(axesHelper);
+
+            // Opsional: Kontrol kamera dengan mouse (OrbitControls)
+            // const controls = new OrbitControls(camera, renderer.domElement);
+            // controls.enableDamping = true; // Efek halus saat berhenti
+            // controls.dampingFactor = 0.05;
+            // controls.screenSpacePanning = false;
+            // controls.minDistance = 3;
+            // controls.maxDistance = 10;
+            // function animateControls() { controls.update(); } // Panggil di loop animasi
+
+            // Handle window resize
+            window.addEventListener('resize', onWindowResize, false);
+
+            // Mulai loop animasi
+            animate();
+        }
+
+        // Fungsi untuk membuat material sisi dengan teks
+        function createFaceMaterial(text, colorString, textColor = 'white', canvasSize = 256) {
+            const canvas = document.createElement('canvas');
+            canvas.width = canvasSize;
+            canvas.height = canvasSize;
+            const context = canvas.getContext('2d');
+
+            // Background
+            context.fillStyle = colorString;
+            context.fillRect(0, 0, canvasSize, canvasSize);
+
+            // Teks
+            context.font = `Bold ${canvasSize / 5}px Arial`; // Ukuran font relatif
+            context.fillStyle = textColor;
+            context.textAlign = 'center';
+            context.textBaseline = 'middle';
+            context.fillText(text, canvasSize / 2, canvasSize / 2);
+
+            const texture = new THREE.CanvasTexture(canvas);
+            return new THREE.MeshBasicMaterial({ map: texture, transparent: true, opacity: 0.9 });
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        // 5. Animasi (Loop yang berjalan terus menerus untuk update dan render)
+        function animate() {
+            requestAnimationFrame(animate); // Minta browser untuk panggil fungsi ini di frame berikutnya
+
+            // Rotasi kubus
+            if (cube) {
+                cube.rotation.x += 0.005;
+                cube.rotation.y += 0.01;
+            }
+
+            // Jika menggunakan OrbitControls, uncomment ini:
+            // animateControls();
+
+            renderer.render(scene, camera); // Render scene dari sudut pandang kamera
+        }
+
+        init(); // Jalankan semuanya
+    </script>
+</body>
+</html>
