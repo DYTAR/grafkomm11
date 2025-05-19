@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Three.js - Geometri, Material, Tekstur</title>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #333; }
+        canvas { display: block; }
+    </style>
+</head>
+<body>
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+        let scene, camera, renderer, controls;
+        let plane, cube, sphere, pyramid;
+
+        const textureLoader = new THREE.TextureLoader();
+        // Tekstur UV Grid yang umum digunakan di contoh Three.js, mirip dengan di gambar Anda
+        const uvGridTextureUrl = 'https://threejs.org/examples/textures/uv_grid_opengl.jpg';
+
+        function init() {
+            // 1. Scene
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x606060); // Latar belakang abu-abu gelap
+
+            // 2. Camera
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.set(0, 5, 10); // Posisikan kamera agar melihat semua objek
+
+            // 3. Renderer
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(window.devicePixelRatio);
+            renderer.shadowMap.enabled = true; // Aktifkan bayangan
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap; // Bayangan lebih halus
+            // Koreksi warna untuk material PBR (seperti MeshStandardMaterial)
+            renderer.outputColorSpace = THREE.SRGBColorSpace;
+            document.body.appendChild(renderer.domElement);
+
+            // 4. Controls (OrbitControls)
+            controls = new OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.05;
+            controls.screenSpacePanning = false;
+            controls.minDistance = 5;
+            controls.maxDistance = 50;
+
+            // 5. Lights
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.5); // Cahaya ambient lembut
+            scene.add(ambientLight);
+
+            const pointLight = new THREE.PointLight(0xffffff, 0.8, 100); // Cahaya titik untuk highlight & bayangan
+            pointLight.position.set(5, 8, 5);
+            pointLight.castShadow = true;
+            // Atur resolusi shadow map untuk kualitas bayangan
+            pointLight.shadow.mapSize.width = 1024;
+            pointLight.shadow.mapSize.height = 1024;
+            scene.add(pointLight);
+
+            // Helper untuk melihat posisi light (opsional)
+            // const pointLightHelper = new THREE.PointLightHelper(pointLight, 1);
+            // scene.add(pointLightHelper);
+
+            // --- Geometri dan Material ---
+
+            // Load tekstur utama
+            const mainTexture = textureLoader.load(uvGridTextureUrl);
+            // Saat tekstur dimuat, Three.js modern (r152+) akan otomatis mengatur
+            // texture.colorSpace = THREE.SRGBColorSpace jika renderer.outputColorSpace adalah SRGBColorSpace.
+            // Jika menggunakan versi Three.js yang lebih lama, Anda mungkin perlu mengaturnya manual.
+            // mainTexture.colorSpace = THREE.SRGBColorSpace; // Sudah otomatis biasanya
+
+            // A. Lantai (Plane)
+            const planeGeometry = new THREE.PlaneGeometry(20, 20, 50, 50); // Lebar, tinggi, segmen
+            const planeMaterial = new THREE.MeshStandardMaterial({
+                map: mainTexture,
+                side: THREE.DoubleSide, // Agar terlihat dari bawah juga (opsional)
+                roughness: 0.8,
+                metalness: 0.2
+            });
+            mainTexture.wrapS = THREE.RepeatWrapping; // Ulangi tekstur pada sumbu S (U)
+            mainTexture.wrapT = THREE.RepeatWrapping; // Ulangi tekstur pada sumbu T (V)
+            mainTexture.repeat.set(10, 10); // Ulangi tekstur 10x10 kali
+
+            plane = new THREE.Mesh(planeGeometry, planeMaterial);
+            plane.rotation.x = -Math.PI / 2; // Putar agar menjadi lantai horizontal
+            plane.position.y = -1; // Posisikan sedikit di bawah origin objek lain
+            plane.receiveShadow = true; // Lantai menerima bayangan
+            scene.add(plane);
+
+            // B. Kubus (BoxGeometry)
+            const cubeSize = 2;
+            const cubeGeometry = new THREE.BoxGeometry(cubeSize, cubeSize, cubeSize);
+            // Untuk kubus, kita bisa gunakan tekstur yang sama atau tekstur berbeda
+            // Di gambar Anda, tekstur kubus berbeda (diagonal). Kita akan pakai UV Grid saja untuk kesederhanaan
+            // atau bisa buat CanvasTexture jika ingin pola spesifik.
+            const cubeTexture = textureLoader.load(uvGridTextureUrl);
+            // cubeTexture.colorSpace = THREE.SRGBColorSpace;
+            const cubeMaterial = new THREE.MeshStandardMaterial({
+                map: cubeTexture,
+                roughness: 0.6,
+                metalness: 0.1
+            });
+            cube = new THREE.Mesh(cubeGeometry, cubeMaterial);
+            cube.position.set(-4, cubeSize / 2 -1, 0); // x, y (setengah tinggi kubus + offset lantai), z
+            cube.castShadow = true;
+            cube.receiveShadow = true;
+            scene.add(cube);
+
+            // C. Bola (SphereGeometry)
+            const sphereRadius = 1.5;
+            const sphereGeometry = new THREE.SphereGeometry(sphereRadius, 32, 32); // Radius, widthSegments, heightSegments
+            const sphereTexture = textureLoader.load(uvGridTextureUrl);
+            // sphereTexture.colorSpace = THREE.SRGBColorSpace;
+            const sphereMaterial = new THREE.MeshStandardMaterial({
+                map: sphereTexture,
+                roughness: 0.1, // Lebih mengkilap untuk menangkap highlight
+                metalness: 0.4
+            });
+            sphere = new THREE.Mesh(sphereGeometry, sphereMaterial);
+            sphere.position.set(0, sphereRadius -1, 0);
+            sphere.castShadow = true;
+            sphere.receiveShadow = true;
+            scene.add(sphere);
+
+            // D. Piramida (ConeGeometry dengan 4 sisi)
+            const pyramidHeight = 2.5;
+            const pyramidRadius = 1.5;
+            const pyramidGeometry = new THREE.ConeGeometry(pyramidRadius, pyramidHeight, 4); // Radius, tinggi, radialSegments (4 untuk alas persegi)
+            const pyramidTexture = textureLoader.load(uvGridTextureUrl);
+            // pyramidTexture.colorSpace = THREE.SRGBColorSpace;
+            const pyramidMaterial = new THREE.MeshStandardMaterial({
+                map: pyramidTexture,
+                roughness: 0.7,
+                metalness: 0.1
+            });
+            pyramid = new THREE.Mesh(pyramidGeometry, pyramidMaterial);
+            pyramid.position.set(4, pyramidHeight / 2 -1, 0);
+            pyramid.castShadow = true;
+            pyramid.receiveShadow = true;
+            scene.add(pyramid);
+
+            // Handle window resize
+            window.addEventListener('resize', onWindowResize, false);
+
+            // Mulai loop animasi
+            animate();
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            controls.update(); // Penting jika enableDamping atau autoRotate = true
+
+            // Animasi sederhana (opsional)
+            if (cube) cube.rotation.y += 0.005;
+            if (sphere) sphere.rotation.y -= 0.003;
+            if (pyramid) pyramid.rotation.y += 0.004;
+
+
+            renderer.render(scene, camera);
+        }
+
+        init();
+    </script>
+</body>
+</html>
